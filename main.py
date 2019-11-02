@@ -6,41 +6,46 @@ http://nilc.icmc.usp.br/macmorpho/
 http://www.nltk.org/howto/portuguese_en.html
 https://pythonprogramming.net/part-of-speech-tagging-nltk-tutorial/
 '''
-def split_text(entrada):
-	text = open(entrada, 'r')
-	for line in text:
-		for word in line.split(' '):
-			palavra, token = word.split('_')
 
-
+import os
+import numpy as np
 import nltk
 	#nltk.download("mac_morpho")
 	#nltk.download('stopwords')
 	#nltk.download('averaged_perceptron_tagger')
 from nltk.corpus import mac_morpho, stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
+from keras import initializers
+from keras.models import Sequential
+from keras.layers import Dense, LSTM
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
+from sklearn.feature_extraction.text import CountVectorizer
+#from graphs import graph_by_class, graph_by_window_size
 
 
 
-
-train_text = mac_morpho.raw('/home/luiza/Documents/nlp/tp2/corpus/macmorpho-train.txt')
-dev_text = mac_morpho.raw('/home/luiza/Documents/nlp/tp2/corpus/macmorpho-dev.txt')
-test_text = mac_morpho.raw('/home/luiza/Documents/nlp/tp2/corpus/macmorpho-test.txt')
+current_dir = os.getcwd()
+train_text = mac_morpho.raw(current_dir+'/corpus/macmorpho-train.txt')
+dev_text = mac_morpho.raw(current_dir+'/corpus/macmorpho-dev.txt')
+test_text = mac_morpho.raw(current_dir+'/corpus/macmorpho-test.txt')
 
 
 
 train_data = word_tokenize(train_text)
-train = [nltk.tag.util.str2tuple(word, sep='_') for word in train_data]
+train_toclean = [nltk.tag.util.str2tuple(word, sep='_') for word in train_data]
 #print(train)
 
+train = [ x for x in train_toclean if x[1] is not None] #cleans train from Not classified instances
+classes = set([x[1] for x in train]) 
+print(classes)
+
+
 dev_data = word_tokenize(dev_text)
-dev = [nltk.tag.util.str2tuple(word, sep='_') for word in dev_data]
+dev_toclean = [nltk.tag.util.str2tuple(word, sep='_') for word in dev_data]
 #print(dev)
 
 test_data = word_tokenize(test_text)
-test = [nltk.tag.util.str2tuple(word, sep='_') for word in test_data]
-
-
+test_toclean = [nltk.tag.util.str2tuple(word, sep='_') for word in test_data]
 
 
 
