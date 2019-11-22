@@ -116,9 +116,7 @@ def main(window_size,epochs,batch_size):
 	data_train,classes_train,vectorizer,corpus = return_training_data(text, window_size, epochs)
 
 	model = create_model(window_size,data_train,classes_train,epochs,batch_size)
-	print("should return here")
-	return 1;#basically a break in the function, i'm learning 
-
+	
     #generating test samples
 	data_test = []
 	classes_test = []
@@ -127,26 +125,26 @@ def main(window_size,epochs,batch_size):
 	result_file_name = str(window_size)+'-'+str(epochs) # stores the LSTM's parameters as string to use as file name
 
 	# check if the total_accuracy file exists
-	if os.path.exists("../results/total_accuracy.csv"):
+	if os.path.exists("results/total_accuracy.csv"):
 		header_exists = True
 	else:
 		header_exists = False
 	# if it does not exist, save the header
-	with open("../results/total_accuracy.csv", "a+") as f:
+	with open("results/total_accuracy.csv", "a+") as f:
 		if not header_exists:
 			f.write("window_size,epochs,accuracy\n")
 		f.write(str(window_size)+","+str(epochs)+","+str(model.evaluate(data_test,classes_test,batch_size=batch_size,verbose=2)[1])+"\n")
 
-	with open("../results/"+result_file_name+".csv","w") as f:
+	with open("results/"+result_file_name+".csv","w") as f:
 		f.write("index,accuracy\n")
 
 	classes_list = vectorizer.get_feature_names() # will be used to return each class's accuracy, but without using an index
 	for index in knownTestByClass:
 		score = model.evaluate(knownTestByClass[index],predictedTestByClass[index],batch_size=batch_size,verbose=2)
-		with open("../results/"+result_file_name+".csv","a") as f:
+		with open("results/"+result_file_name+".csv","a") as f:
 			f.write(str(classes_list[index])+","+str(score[1])+"\n")
 
-	graph_by_class("../results/"+result_file_name+".csv",window_size,epochs) # generating graphics
+	graph_by_class("results/"+result_file_name+".csv",window_size,epochs) # generating graphics
 
 
 pre_processing()
@@ -154,4 +152,4 @@ for i in range(3,6):
 	main(i,1,8192)
 	break;
 
-#graph_by_window_size("../results/total_accuracy.csv")
+#graph_by_window_size("results/total_accuracy.csv")

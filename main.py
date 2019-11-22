@@ -131,43 +131,56 @@ def return_testing_data(vectorizer, window_size, corpus, test):
 
     return data_test,classes_test,valor_test_por_classe,resultado_test_por_classe
 
+def main(window_size, epochs,batch_size, train, classes, dev, test):
+
+    data_train,classes_train,vectorizer,corpus = return_training_data(train, window_size, epochs)
+    model = create_model(window_size,data_train,classes_train,epochs,batch_size)
+    #generating test samples
+
+    data_test = []
+    classes_test = []
+    data_test,classes_test,valor_test_por_classe,resultado_test_por_classe = return_testing_data(vectorizer, window_size, corpus, test)
+
+    resultado = str(window_size) + '-' + str(epochs)
+
+
+    #checa se a header existe
+    if os.path.exists("results/total_accuracy.csv"):
+        header_exists = True
+    else:
+        header_exists = False
+
+    # if it does not exist, save the header
+    with open("results/total_accuracy.csv", "a+") as f:
+        if not header_exists:
+            f.write("window_size,epochs,accuracy\n")
+        f.write(str(window_size)+","+str(epochs)+","+str(model.evaluate(data_test,classes_test,batch_size=batch_size,verbose=2)[1])+"\n")
+
+
+    with open("results/"+resultado+'.csv', "w") as f:
+        f.write("index,accuracy\n")
+
+    classes_list = vectorizer.get_feature_names()# will be used to return each class's accuracy, but without using an index
+
+    for index in valor_test_por_classe:
+        score = model.evaluate(valor_test_por_classe[index], resultado_test_por_classe[index], batch_size = batch_size, verbose = 2)
+        with open("results/"+resultado+".csv","a") as f:
+                f.write(str(classes_list[index])+","+str(score[1])+"\n")
+
+    graph_by_class("results/"+resultado+".csv",window_size,epochs) # generating graphics
+
 
 train, classes, dev, test = pre_process()
 
-#window_size, batches and epochs
-window_size = 3
-epochs = 1
-batch_size = 8192
+for ep in range (1,6):
+    for window in range(2,6):
+        #window_size, batches and epochs
+        window_size = window
+        epochs = ep
+        batch_size = 8192
+        print("--------------------------------------------------")
+        print("Doing for window_size = ", window_size," and epochs = ", epochs)
+        main(window_size, epochs,batch_size, train, classes, dev, test)
+
 #the above can change, i'll make a function for that and etc
-
-data_train,classes_train,vectorizer,corpus = return_training_data(train, window_size, epochs)
-model = create_model(window_size,data_train,classes_train,epochs,batch_size)
-#generating test samples
-
-data_test = []
-classes_test = []
-data_test,classes_test,valor_test_por_classe,resultado_test_por_classe = return_testing_data(vectorizer, window_size, corpus, test)
-
-resultado = str(window_size) + '-' + str(epochs)
-
-
-#checa se a header existe
-if os.path.exists("results/total_accuracy.csv"):
-    header_exists = True
-else:
-    header_exists = False
-
-with open("results/total_accuracy.csv", 'a+') as f:
-    f.write("index,accuracy\n")
-
-with open("results/"+resultado+'.csv', "w") as f:
-    f.write("index,accuracy\n")
-
-classes_list = vectorizer.get_feature_names()# will be used to return each class's accuracy, but without using an index
-
-for index in valor_test_por_classe:
-    score = model.evaluate(valor_test_por_classe[index], resultado_test_por_classe[index], batch_size = batch_size, verbose = 2)
-    with open("../results/"+resultado+".csv","a") as f:
-            f.write(str(classes_list[index])+","+str(score[1])+"\n")
-
-graph_by_class("/results/"+result_file_name+".csv",window_size,epochs) # generating graphics
+#graph_by_window_size("results/total_accuracy.csv")
