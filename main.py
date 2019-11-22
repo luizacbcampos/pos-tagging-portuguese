@@ -20,7 +20,7 @@ from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.feature_extraction.text import CountVectorizer
-#from graphs import graph_by_class, graph_by_window_size
+from graphs import graph_by_class, graph_by_window_size
 
 
 def pre_process():
@@ -90,47 +90,46 @@ def getOneHot(test_corpus): #returns one-hot index
         if(test_corpus[i]==1):
             return i
 
-#FUNCTION BELOW NEEDS TO BE EDITED
 def return_testing_data(vectorizer, window_size, corpus, test):
     data_test = []
     classes_test = []
     test = [x[1] for x in test] #text is only the classes from test (ou seja, todo x[1])
 
-    test_corpus = vectorizer.fit_transform(text)
+    test_corpus = vectorizer.fit_transform(test)
     test_corpus = test_corpus.toarray()
 
-    knownTestByClass = {}
-    predictedTestByClass = {}
+    valor_test_por_classe = {} #o valor conhecido
+    resultado_test_por_classe = {} #o valor previsto
 
     window_start=0 #sliding window
     window_end=window_size-1 #sliding window
 
     while(window_end<len(test_corpus)-1):
         index = getOneHot(test_corpus[(window_end)])
-        if index not in knownTestByClass:
-            knownTestByClass[index] = []
+        if index not in valor_test_por_classe:
+            valor_test_por_classe[index] = []
 
-        if index not in predictedTestByClass:
-            predictedTestByClass[index] = []
+        if index not in resultado_test_por_classe:
+            resultado_test_por_classe[index] = []
 
         window_end += 1
-        knownTestByClass[index].append(test_corpus[window_start:window_end])
-        predictedTestByClass[index].append(test_corpus[window_end])
+        valor_test_por_classe[index].append(test_corpus[window_start:window_end])
+        resultado_test_por_classe[index].append(test_corpus[window_end])
 
         data_test.append(corpus[window_start:window_end])
         classes_test.append(corpus[window_end])
 
         window_start += 1
 
-    for i in knownTestByClass:
-        knownTestByClass[i] = np.array(knownTestByClass[i])
-    for i in predictedTestByClass:
-        predictedTestByClass[i] = np.array(predictedTestByClass[i])
+    for i in valor_test_por_classe:
+        valor_test_por_classe[i] = np.array(valor_test_por_classe[i])
+    for i in resultado_test_por_classe:
+        resultado_test_por_classe[i] = np.array(resultado_test_por_classe[i])
 
     data_test = np.array(data_test)
     classes_test = np.array(classes_test)
 
-    return data_test,classes_test,knownTestByClass,predictedTestByClass
+    return data_test,classes_test,valor_test_por_classe,resultado_test_por_classe
 
 
 train, classes, dev, test = pre_process()
@@ -147,4 +146,28 @@ model = create_model(window_size,data_train,classes_train,epochs,batch_size)
 
 data_test = []
 classes_test = []
-data_test,classes_test,knownTestByClass,predictedTestByClass = return_testing_data(vectorizer, window_size, corpus, text)
+data_test,classes_test,valor_test_por_classe,resultado_test_por_classe = return_testing_data(vectorizer, window_size, corpus, test)
+
+resultado = str(window_size) + '-' + str(epochs)
+
+
+#checa se a header existe
+if os.path.exists("results/total_accuracy.csv"):
+    header_exists = True
+else:
+    header_exists = False
+
+with open("results/total_accuracy.csv", 'a+') as f:
+    f.write("index,accuracy\n")
+
+with open("results/"+resultado+'.csv', "w") as f:
+    f.write("index,accuracy\n")
+
+classes_list = vectorizer.get_feature_names()# will be used to return each class's accuracy, but without using an index
+
+for index in valor_test_por_classe:
+    score = model.evaluate(valor_test_por_classe[index], resultado_test_por_classe[index], batch_size = batch_size, verbose = 2)
+    with open("../results/"+resultado+".csv","a") as f:
+            f.write(str(classes_list[index])+","+str(score[1])+"\n")
+
+graph_by_class("/results/"+result_file_name+".csv",window_size,epochs) # generating graphics
