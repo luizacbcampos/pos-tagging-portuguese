@@ -10,7 +10,6 @@ https://pythonprogramming.net/part-of-speech-tagging-nltk-tutorial/
 import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 import nltk
 	#nltk.download("mac_morpho")
 	#nltk.download('stopwords')
@@ -21,8 +20,6 @@ from keras import initializers
 from keras.models import Sequential
 from keras.layers import Dense, LSTM
 from keras.backend import clear_session
-from keras.preprocessing.sequence import pad_sequences
-
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.feature_extraction.text import CountVectorizer
 from graphs import graph_by_class, graph_by_window_size
@@ -35,38 +32,29 @@ def pre_process():
     dev_text = open(current_dir+'/corpus/macmorpho-dev.txt', 'r')
     test_text = open(current_dir+'/corpus/macmorpho-test.txt', 'r')
 
-    sentences_train = []
-    sentences_dev = []
-    sentences_test = []
+
+
     #TRAIN DATA
-    for line in train_text.readlines():
-    	tudo = line.replace('\n', '').split(' ')
-    	train = [nltk.tag.util.str2tuple(word, sep='_') for word in tudo]
-    	sentences_train.append(train)
-    	#print(train)
-    big = 248
-
-
+    train_data = train_text.read().replace('\n', '').split(' ')
+    train = [nltk.tag.util.str2tuple(word, sep='_') for word in train_data]
+    #print(train)
     classes = set([x[1] for x in train]) 
     #print(classes)
 
+
     #DEV DATA
-    for line in dev_text.readlines():
-    	tudo = line.replace('\n', '').split(' ')
-    	dev = [nltk.tag.util.str2tuple(word, sep='_') for word in tudo]
-    	sentences_dev.append(dev)
-	#print(dev)
+    dev_data = dev_text.read().replace('\n', '').split(' ')
+    dev = [nltk.tag.util.str2tuple(word, sep='_') for word in dev_data]
+    #print(dev)
 
     #TEST DATA
-    for line in test_text.readlines():
-    	tudo = line.replace('\n', '').split(' ')
-    	test = [nltk.tag.util.str2tuple(word, sep='_') for word in tudo]
-    	sentences_test.append(test)
-    	#print(test)
+    test_data = test_text.read().replace('\n', '').split(' ')
+    test = [nltk.tag.util.str2tuple(word, sep='_') for word in test_data]
+    #print(test)
 
     print("Pre-processing done")
-    return sentences_train, classes, sentences_dev,sentences_test
-    #return sentences_train, train, classes, sentences_dev, dev, sentences_test, test
+    return train, classes, dev, test
+    
 
 def return_training_data(train, window_size, epochs):
     data_train = []
@@ -168,7 +156,6 @@ def return_testing_data(vectorizer, window_size, corpus, test):
 def main(window_size, epochs,batch_size, train, classes, dev, test):
 
     data_train,classes_train,vectorizer,corpus = return_training_data(train, window_size, epochs)
-    
     data_val,classes_val,vectorizer2,corpus2 = return_validation_data(dev, window_size,epochs)
 
     model = create_model(window_size,data_train,classes_train,epochs,batch_size,data_val,classes_val)
@@ -208,34 +195,14 @@ def main(window_size, epochs,batch_size, train, classes, dev, test):
     del model
 
 
-sentences_train, classes, sentences_dev,sentences_test = pre_process()
-
-
-#split words and tags
-train_sentence_words, train_sentence_tags =[], [] 
-for tagged_sentence in sentences_train:
-    sentence, tags = zip(*tagged_sentence)
-    train_sentence_words.append(np.array(sentence))
-    train_sentence_tags.append(np.array(tags))
-
-dev_sentence_words, dev_sentence_tags =[], [] 
-for tagged_sentence in sentences_dev:
-    sentence, tags = zip(*tagged_sentence)
-    dev_sentence_words.append(np.array(sentence))
-    dev_sentence_tags.append(np.array(tags))
-
-test_sentence_words, test_sentence_tags =[], [] 
-for tagged_sentence in sentences_test:
-    sentence, tags = zip(*tagged_sentence)
-    test_sentence_words.append(np.array(sentence))
-    test_sentence_tags.append(np.array(tags))
-
+train, classes, dev, test = pre_process()
 '''
 text = [x[1] for x in train]
 x = pd.Series(text)
 x = x.value_counts(normalize=True)
 print(x)
 
+'''
 
 
 for ep in range (1,6):
@@ -251,5 +218,3 @@ for ep in range (1,6):
         tf.keras.backend.clear_session()
 #the above can change, i'll make a function for that and etc
 #graph_by_window_size("results/total_accuracy.csv")
-
-'''

@@ -27,10 +27,10 @@ def graph_by_class(file_path,window_size,epochs):
     ax.grid(True)
 
     plt.xlim(0.92, 1.00005)
-    if not os.path.exists('results/graphs'):
-        os.makedirs('results/graphs')
+    if not os.path.exists('breno_results/graphs'):
+        os.makedirs('breno_results/graphs')
 
-    plt.savefig('results/graphs/accuracy_by_class_'+str(window_size)+"-"+str(epochs)+'.png', bbox_inches='tight', pad_inches=1)
+    plt.savefig('breno_results/graphs/accuracy_by_class_'+str(window_size)+"-"+str(epochs)+'.png', bbox_inches='tight', pad_inches=1)
     del keys
     plt.close('all')
 
@@ -65,10 +65,10 @@ def graph_by_window_size(file_path):
     plt.ylabel("Accuracy")
     plt.show()
     return
-    if not os.path.exists('results/graphs'):
-        os.makedirs('results/graphs')
+    if not os.path.exists('breno_results/graphs'):
+        os.makedirs('breno_results/graphs')
 
-    plt.savefig('results/graphs/total_accuracy.png', bbox_inches='tight', pad_inches=1)
+    plt.savefig('breno_results/graphs/total_accuracy.png', bbox_inches='tight', pad_inches=1)
     plt.close('all')
 
 #graph_by_window_size("results/total_accuracy.csv")
