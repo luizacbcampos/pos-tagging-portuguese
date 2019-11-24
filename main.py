@@ -19,14 +19,14 @@ from nltk.corpus import mac_morpho, stopwords
 from nltk.tokenize import word_tokenize, sent_tokenize
 from keras import initializers
 from keras.models import Sequential
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, InputLayer, Bidirectional, TimeDistributed, Embedding, Activation
 from keras.backend import clear_session
 from keras.preprocessing.sequence import pad_sequences
 
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from sklearn.feature_extraction.text import CountVectorizer
-from graphs import graph_by_class, graph_by_window_size
 import tensorflow as tf
+from graphs import graph_by_class, graph_by_window_size
 
 
 def pre_process():
@@ -44,7 +44,7 @@ def pre_process():
     	train = [nltk.tag.util.str2tuple(word, sep='_') for word in tudo]
     	sentences_train.append(train)
     	#print(train)
-    big = 248
+    MAX_LEGTH = 248
 
 
     classes = set([x[1] for x in train]) 
@@ -68,102 +68,125 @@ def pre_process():
     return sentences_train, classes, sentences_dev,sentences_test
     #return sentences_train, train, classes, sentences_dev, dev, sentences_test, test
 
-def return_training_data(train, window_size, epochs):
-    data_train = []
-    classes_train = []
-    text = [x[1] for x in train] #text is only the classes from train (ou seja, todo x[1]) 
-    vectorizer = CountVectorizer(lowercase=False, token_pattern='[A-Z;+;-]+')
-    corpus = vectorizer.fit_transform(text)
-    corpus = corpus.toarray()
+def splits_sentences(sentences_train, sentences_dev, sentences_test):
+	#split words and tags
+	train_sentence_words, train_sentence_tags =[], [] 
+	for tagged_sentence in sentences_train:
+	    sentence, tags = zip(*tagged_sentence)
+	    train_sentence_words.append(np.array(sentence))
+	    train_sentence_tags.append(np.array(tags))
 
-    window_start=0 #sliding window
-    window_end=window_size-1 #sliding window
-    while(window_end<len(corpus)-1):
-        window_end += 1
-        data_train.append(corpus[window_start:window_end])
-        classes_train.append(corpus[window_end])
-        window_start += 1
+	dev_sentence_words, dev_sentence_tags =[], [] 
+	for tagged_sentence in sentences_dev:
+	    sentence, tags = zip(*tagged_sentence)
+	    dev_sentence_words.append(np.array(sentence))
+	    dev_sentence_tags.append(np.array(tags))
 
-    data_train = np.array(data_train)
-    classes_train = np.array(classes_train)
-    return data_train,classes_train,vectorizer,corpus
+	test_sentence_words, test_sentence_tags =[], [] 
+	for tagged_sentence in sentences_test:
+	    sentence, tags = zip(*tagged_sentence)
+	    test_sentence_words.append(np.array(sentence))
+	    test_sentence_tags.append(np.array(tags))
 
-def return_validation_data(val, window_size,epochs):
-	data_val = []
-	classes_val = []
-	text = [x[1] for x in val] #text is only the classes from val (ou seja, todo x[1]) 
-	vectorizer = CountVectorizer(lowercase=False, token_pattern='[A-Z;+;-]+')
-	corpus = vectorizer.fit_transform(text)
-	corpus = corpus.toarray()
+	#converts to numbers    
+	return convert_to_numbers(train_sentence_words, train_sentence_tags, dev_sentence_words, dev_sentence_tags, test_sentence_words, test_sentence_tags)
 
-	window_start=0 #sliding window
-	window_end=window_size-1 #sliding window
-	while(window_end<len(corpus)-1):
-	    window_end += 1
-	    data_val.append(corpus[window_start:window_end])
-	    classes_val.append(corpus[window_end])
-	    window_start += 1
+def convert_to_numbers(train_sentence_words, train_sentence_tags, dev_sentence_words, dev_sentence_tags, test_sentence_words, test_sentence_tags):
+	#converting to numbers
+	words, tags = set([]), set([])
+	 
+	for s in train_sentence_words :
+	    for w in s:
+	        words.add(w.lower())
+ 
+	for ts in train_sentence_tags:
+	    for t in ts:
+	        tags.add(t)
 
-	data_val = np.array(data_val)
-	classes_val = np.array(classes_val)
-	return data_val,classes_val,vectorizer,corpus
+	word2index = {w: i + 2 for i, w in enumerate(list(words))}
+	word2index['-PAD-'] = 0  # The special value used for padding
+	word2index['-OOV-'] = 1  # The special value used for OOVs
 
-def create_model(window_size,data_train,classes_train,epochs,batch_size, data_val,classes_val):
-    np.random.seed(7)
+	tag2index = {t: i + 1 for i, t in enumerate(list(tags))}
+	tag2index['-PAD-'] = 0  # The special value used to padding
+
+	#converting the word dataset to numbers
+
+	train_sentences_X, val_sentences_X, test_sentences_X, train_tags_y, val_tags_y, test_tags_y = [], [], [], [], [], []
+
+	#train	 
+	for s in train_sentence_words:
+	    s_int = []
+	    for w in s:
+	        try:
+	            s_int.append(word2index[w.lower()])
+	        except KeyError:
+	            s_int.append(word2index['-OOV-'])
+	 
+	    train_sentences_X.append(s_int)
+
+	#validation
+	for s in dev_sentence_words:
+	    s_int = []
+	    for w in s:
+	        try:
+	            s_int.append(word2index[w.lower()])
+	        except KeyError:
+	            s_int.append(word2index['-OOV-'])
+	 
+	    val_sentences_X.append(s_int)
+	#test 
+	for s in test_sentence_words:
+	    s_int = []
+	    for w in s:
+	        try:
+	            s_int.append(word2index[w.lower()])
+	        except KeyError:
+	            s_int.append(word2index['-OOV-'])
+	 
+	    test_sentences_X.append(s_int)
+	
+
+	for s in train_sentence_tags:
+	    train_tags_y.append([tag2index[t] for t in s])
+	
+	for s in dev_sentence_tags:
+	    val_tags_y.append([tag2index[t] for t in s])
+	 
+	for s in test_sentence_tags:
+	    test_tags_y.append([tag2index[t] for t in s])
+	 
+	print("Done number converting")
+
+	return word2index, tag2index, train_sentences_X, val_sentences_X, test_sentences_X, train_tags_y, val_tags_y, test_tags_y
+
+def to_categorical(sequences, categories):
+    cat_sequences = []
+    for s in sequences:
+        cats = []
+        for item in s:
+            cats.append(np.zeros(categories))
+            cats[-1][item] = 1.0
+        cat_sequences.append(cats)
+    return np.array(cat_sequences)
+
+def create_model(window_size,train_sentences_X,train_tags_y,epochs,batch_size,val_sentences_X,val_tags_y, tag2index):
+    
     model = Sequential()
-    model.add(LSTM(50,input_shape=(window_size,26)))
-    model.add(Dense(25,activation='relu'))
-    model.add(Dense(2, activation='sigmoid'))
-    model.add(Dense(26, activation=lambda x: x))
-    model.compile(loss='categorical_crossentropy', optimizer ='adam',metrics=['accuracy'])
-    model.fit(data_train,classes_train,epochs=epochs, batch_size=batch_size,validation_data=(data_val,classes_val),verbose=1)
+    model.add(InputLayer(input_shape=(248,)))
+    model.add(Embedding(len(word2index), 128))
+    model.add(Bidirectional(LSTM(256, return_sequences=True)))
+    model.add(TimeDistributed(Dense(len(tag2index))))
+    model.add(Activation('softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer ='rmsprop',metrics=['accuracy'])
+    print(model.summary())
+    model.fit(train_sentences_X,train_tags_y,epochs=epochs, batch_size=batch_size,verbose=1,  validation_split=0.2)#validation_data=(val_sentences_X,val_tags_y))
     return model
 
 def getOneHot(test_corpus): #returns one-hot index
     for i in range(0,len(test_corpus)):
         if(test_corpus[i]==1):
             return i
-
-def return_testing_data(vectorizer, window_size, corpus, test):
-    data_test = []
-    classes_test = []
-    test = [x[1] for x in test] #text is only the classes from test (ou seja, todo x[1])
-
-    test_corpus = vectorizer.fit_transform(test)
-    test_corpus = test_corpus.toarray()
-
-    valor_test_por_classe = {} #o valor conhecido
-    resultado_test_por_classe = {} #o valor previsto
-
-    window_start=0 #sliding window
-    window_end=window_size-1 #sliding window
-
-    while(window_end<len(test_corpus)-1):
-        index = getOneHot(test_corpus[(window_end)])
-        if index not in valor_test_por_classe:
-            valor_test_por_classe[index] = []
-
-        if index not in resultado_test_por_classe:
-            resultado_test_por_classe[index] = []
-
-        window_end += 1
-        valor_test_por_classe[index].append(test_corpus[window_start:window_end])
-        resultado_test_por_classe[index].append(test_corpus[window_end])
-
-        data_test.append(corpus[window_start:window_end])
-        classes_test.append(corpus[window_end])
-
-        window_start += 1
-
-    for i in valor_test_por_classe:
-        valor_test_por_classe[i] = np.array(valor_test_por_classe[i])
-    for i in resultado_test_por_classe:
-        resultado_test_por_classe[i] = np.array(resultado_test_por_classe[i])
-
-    data_test = np.array(data_test)
-    classes_test = np.array(classes_test)
-
-    return data_test,classes_test,valor_test_por_classe,resultado_test_por_classe
 
 def main(window_size, epochs,batch_size, train, classes, dev, test):
 
@@ -209,27 +232,27 @@ def main(window_size, epochs,batch_size, train, classes, dev, test):
 
 
 sentences_train, classes, sentences_dev,sentences_test = pre_process()
+word2index, tag2index, train_sentences_X, val_sentences_X, test_sentences_X, train_tags_y, val_tags_y, test_tags_y = splits_sentences(sentences_train, sentences_dev,sentences_test)
 
+window_size = 3
+batch_size = 120
+epochs=1
 
-#split words and tags
-train_sentence_words, train_sentence_tags =[], [] 
-for tagged_sentence in sentences_train:
-    sentence, tags = zip(*tagged_sentence)
-    train_sentence_words.append(np.array(sentence))
-    train_sentence_tags.append(np.array(tags))
+print(tag2index)
 
-dev_sentence_words, dev_sentence_tags =[], [] 
-for tagged_sentence in sentences_dev:
-    sentence, tags = zip(*tagged_sentence)
-    dev_sentence_words.append(np.array(sentence))
-    dev_sentence_tags.append(np.array(tags))
+'''
+train_sentences_X = pad_sequences(train_sentences_X, maxlen=248, padding='post')
+test_sentences_X = pad_sequences(test_sentences_X, maxlen=248, padding='post')
+val_sentences_X = pad_sequences(val_sentences_X, maxlen=248, padding='post')
+val_sentences_X = pad_sequences(val_sentences_X, maxlen=248, padding='post')
+train_tags_y = pad_sequences(train_tags_y, maxlen=248, padding='post')
+test_tags_y = pad_sequences(test_tags_y, maxlen=248, padding='post')
 
-test_sentence_words, test_sentence_tags =[], [] 
-for tagged_sentence in sentences_test:
-    sentence, tags = zip(*tagged_sentence)
-    test_sentence_words.append(np.array(sentence))
-    test_sentence_tags.append(np.array(tags))
+#cat_train_tags_y = to_categorical(train_tags_y, len(tag2index))
+#print(cat_train_tags_y)
 
+#model = create_model(window_size,train_sentences_X,to_categorical(train_tags_y, len(tag2index)),epochs,batch_size,val_sentences_X,to_categorical(val_tags_y, len(tag2index)), tag2index)
+'''
 '''
 text = [x[1] for x in train]
 x = pd.Series(text)
